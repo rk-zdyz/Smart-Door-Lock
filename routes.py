@@ -1,7 +1,8 @@
 # API Routes
 # All HTTP endpoints for the server
 
-from flask import Blueprint, request, jsonify, render_template_string
+from flask import Blueprint, request, jsonify, render_template_string, Response
+from functools import wraps
 from config import RECOGNITION_THRESHOLD
 from face_service import decode_image, detect_faces, encode_face, compare_faces
 from database import (
@@ -10,9 +11,32 @@ from database import (
 )
 from templates import HOME_PAGE, REGISTER_PAGE, APP_PAGE
 import database
+import os
 
 # Create blueprint for routes
 api = Blueprint('api', __name__)
+
+# Admin credentials (set via environment variable or default)
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'smartlock123')
+
+def check_admin_auth(username, password):
+    """Check if username/password match admin credentials"""
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+
+def admin_required(f):
+    """Decorator for admin-only endpoints"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_admin_auth(auth.username, auth.password):
+            return Response(
+                'Admin access required. Please login.',
+                401,
+                {'WWW-Authenticate': 'Basic realm="Admin Access"'}
+            )
+        return f(*args, **kwargs)
+    return decorated
 
 
 @api.route('/')
@@ -174,8 +198,9 @@ def list_faces():
 
 
 @api.route('/faces/<face_id>', methods=['DELETE'])
+@admin_required
 def remove_face(face_id):
-    """Delete a registered face"""
+    """Delete a registered face (admin only)"""
     success, name = delete_face(face_id)
     if success:
         return jsonify({"success": True, "message": f"Deleted {name}"})
@@ -183,6 +208,7 @@ def remove_face(face_id):
 
 
 @api.route('/logs', methods=['GET'])
+@admin_required
 def access_logs():
-    """Get access logs"""
+    """Get access logs (admin only)"""
     return jsonify(get_logs())
