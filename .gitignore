@@ -1,0 +1,12 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+.env
+.venv
+env/
+venv/
+*.log
+registered_faces.json
+access_logs.json
+captured_faces/
